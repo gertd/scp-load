@@ -13,6 +13,7 @@
 
 # temp artifacts
 *.go.txt
+go.mod.dev 
 
 # proffler output
 *.pprof

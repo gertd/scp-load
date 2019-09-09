@@ -10,7 +10,7 @@
             "cwd": "${workspaceFolder}",
             "env": {},
             "args": [
-                "/home/gertd/workspace/scratch/elastic/Employees100K.json",
+                "./data/Employees100K.json",
                 "--tenant", "${env:SCP_TENANT}"
             ]
         }
