@@ -24,3 +24,4 @@ appreg.*.json
 # build & release directories
 /bin
 /release
+/data
