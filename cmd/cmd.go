@@ -13,6 +13,13 @@ import (
 	"gitlab.com/d5s/go-scp/scp"
 )
 
+const (
+	tenantArg     = "tenant"
+	hostArg       = "host"
+	sourceArg     = "source"
+	sourcetypeArg = "sourcetype"
+)
+
 var (
 	client *scp.Client
 	config struct {
@@ -37,12 +44,12 @@ func Execute() error {
 		Args:     cobra.ExactArgs(1),
 	}
 
-	rootCmd.Flags().StringP("tenant", "", "", "tenant identifier")
-	rootCmd.Flags().StringP("host", "", "", "event host name")
-	rootCmd.Flags().StringP("source", "", "", "event source")
-	rootCmd.Flags().StringP("sourcetype", "", "", "event sourcetype")
+	rootCmd.Flags().StringP(tenantArg, "", "", "tenant identifier")
+	rootCmd.Flags().StringP(hostArg, "", "", "event host name")
+	rootCmd.Flags().StringP(sourceArg, "", "", "event source")
+	rootCmd.Flags().StringP(sourcetypeArg, "", "", "event sourcetype")
 
-	rootCmd.MarkFlagRequired("tenant")
+	rootCmd.MarkFlagRequired(tenantArg)
 
 	return rootCmd.Execute()
 }
@@ -55,16 +62,16 @@ func preRunCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("file [%s] does not exist", config.filename)
 	}
 
-	if config.tenant, err = cmd.Flags().GetString("tenant"); err != nil {
+	if config.tenant, err = cmd.Flags().GetString(tenantArg); err != nil {
 		return err
 	}
-	if config.hostname, err = cmd.Flags().GetString("host"); err != nil {
+	if config.hostname, err = cmd.Flags().GetString(hostArg); err != nil {
 		return err
 	}
-	if config.source, err = cmd.Flags().GetString("source"); err != nil {
+	if config.source, err = cmd.Flags().GetString(sourceArg); err != nil {
 		return err
 	}
-	if config.sourcetype, err = cmd.Flags().GetString("sourcetype"); err != nil {
+	if config.sourcetype, err = cmd.Flags().GetString(sourcetypeArg); err != nil {
 		return err
 	}
 
@@ -74,8 +81,7 @@ func preRunCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	client = scp.NewClient(config.tenant, appreg.ClientID, appreg.ClientSecret)
-	_, err = client.TokenSource.Token()
-	if err != nil {
+	if err := client.Authenticate(); err != nil {
 		return err
 	}
 
@@ -104,7 +110,12 @@ func execCmd(cmd *cobra.Command, args []string) error {
 
 	// produce ingest events
 	ep := events.NewEventsProducerJSON(quit)
-	go ep.Run(r)
+	props := events.Properties{
+		Host:       &config.hostname,
+		Source:     &config.source,
+		Sourcetype: &config.sourcetype,
+	}
+	go ep.Run(r, props)
 
 	// consume ingest events + produce batch evenys
 	bp := ingest.NewBatchProcessor(ep.Events(), quit)
@@ -114,7 +125,7 @@ func execCmd(cmd *cobra.Command, args []string) error {
 	bw := ingest.NewBatchWriter(client, bp.Batches(), quit)
 	bw.Run()
 
-	log.Printf("batches %d events %d size %d \n", bw.TotalBatches(), bp.TotalEvents(), bp.TotalByteSize())
+	log.Printf("Summary: batches %d events %d size %d\n", bw.TotalBatches(), bp.TotalEvents(), bp.TotalByteSize())
 
 	return nil
 }

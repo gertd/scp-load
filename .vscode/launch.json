@@ -11,7 +11,10 @@
             "env": {},
             "args": [
                 "./data/Employees100K.json",
-                "--tenant", "${env:SCP_TENANT}"
+                "--tenant", "${env:SCP_TENANT}",
+                "--host", "localhost",
+                "--source", "Emp100k",
+                "--sourcetype", "json"
             ]
         }
     ]
