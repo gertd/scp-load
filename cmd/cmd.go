@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/spf13/cobra"
 	"github.com/gertd/go-scp/events"
 	"github.com/gertd/go-scp/events/csv"
 	"github.com/gertd/go-scp/events/json"
 	"github.com/gertd/go-scp/ingest"
 	"github.com/gertd/go-scp/scp"
+	"github.com/spf13/cobra"
 )
 
 const (
