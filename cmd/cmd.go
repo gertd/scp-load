@@ -10,11 +10,11 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/d5s/go-scp/events"
-	"gitlab.com/d5s/go-scp/events/csv"
-	"gitlab.com/d5s/go-scp/events/json"
-	"gitlab.com/d5s/go-scp/ingest"
-	"gitlab.com/d5s/go-scp/scp"
+	"github.com/gertd/go-scp/events"
+	"github.com/gertd/go-scp/events/csv"
+	"github.com/gertd/go-scp/events/json"
+	"github.com/gertd/go-scp/ingest"
+	"github.com/gertd/go-scp/scp"
 )
 
 const (

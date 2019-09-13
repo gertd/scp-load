@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	
-	"gitlab.com/d5s/scp-load/cmd"
+	"github.com/gertd/scp-load/cmd"
 )
 
 func main() {
