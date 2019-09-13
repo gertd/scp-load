@@ -1,14 +1,18 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
 	"gitlab.com/d5s/go-scp/events"
+	"gitlab.com/d5s/go-scp/events/csv"
+	"gitlab.com/d5s/go-scp/events/json"
 	"gitlab.com/d5s/go-scp/ingest"
 	"gitlab.com/d5s/go-scp/scp"
 )
@@ -18,6 +22,11 @@ const (
 	hostArg       = "host"
 	sourceArg     = "source"
 	sourcetypeArg = "sourcetype"
+)
+
+const (
+	csvExt  = ".csv"
+	jsonExt = ".json"
 )
 
 var (
@@ -96,7 +105,7 @@ func execCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer r.Close()
 
-	// buf := bufio.NewReader(r)
+	buf := bufio.NewReader(r)
 
 	sigs := make(chan os.Signal, 1)
 	quit := make(chan bool)
@@ -109,13 +118,23 @@ func execCmd(cmd *cobra.Command, args []string) error {
 	}()
 
 	// produce ingest events
-	ep := events.NewEventsProducerJSON(quit)
+	var ep events.Producer
+
+	if filepath.Ext(config.filename) == jsonExt {
+		ep = json.NewEventsProducer(quit)
+	} else if filepath.Ext(config.filename) == csvExt {
+		ep = csv.NewEventsProducer(quit)
+	} else {
+		ep = json.NewEventsProducer(quit)
+	}
+	log.Printf("Selected event producer [%T]", ep)
+
 	props := events.Properties{
 		Host:       &config.hostname,
 		Source:     &config.source,
 		Sourcetype: &config.sourcetype,
 	}
-	go ep.Run(r, props)
+	go ep.Run(buf, props)
 
 	// consume ingest events + produce batch evenys
 	bp := ingest.NewBatchProcessor(ep.Events(), quit)
