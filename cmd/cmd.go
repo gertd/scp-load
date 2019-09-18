@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"github.com/gertd/go-scp/events"
@@ -16,6 +17,13 @@ import (
 	"github.com/gertd/go-scp/ingest"
 	"github.com/gertd/go-scp/scp"
 	"github.com/spf13/cobra"
+)
+
+// ldflags injected build version info
+var (
+	version string //nolint:gochecknoglobals
+	date    string //nolint:gochecknoglobals
+	commit  string //nolint:gochecknoglobals
 )
 
 const (
@@ -79,7 +87,7 @@ func Execute() error {
 		rootCmd = &cobra.Command{
 			Use:     "scp-load",
 			Short:   "scp data loader",
-			Version: "0.0.9",
+			Version: fmt.Sprintf("%s %s-%s #%s %s ", version, runtime.GOOS, runtime.GOARCH, commit, date),
 			PreRunE: preRunCmd(appContext),
 			RunE:    runCmd(appContext),
 			Args:    cobra.ExactArgs(1),

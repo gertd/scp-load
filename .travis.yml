@@ -20,6 +20,10 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
+    repo: gertd/scp-load
+    branches:
+      only:
+        - master
 notifications:
   email: false
 env:
