@@ -1,5 +1,6 @@
-## BOF define block
+SHELL 	   := $(shell which bash)
 
+## BOF define block
 PROJECT    := scp-load
 BINARY     := scp-load
 
