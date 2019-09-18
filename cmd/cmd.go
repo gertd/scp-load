@@ -136,7 +136,7 @@ func runCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
 		}
 		defer r.Close()
 
-		buf := bufio.NewReader(r)
+		rdr := bufio.NewReader(r)
 
 		sigs := make(chan os.Signal, 1)
 
@@ -150,24 +150,26 @@ func runCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
 			cancel()
 		}()
 
-		// produce ingest events
-		var ep events.Producer
-		switch filepath.Ext(app.config.filename) {
-		case jsonExt:
-			ep = json.NewEventsProducer(ctx)
-		case csvExt:
-			ep = csv.NewEventsProducer(ctx)
-		default:
-			ep = json.NewEventsProducer(ctx)
-		}
-		log.Printf("Selected event producer [%T]", ep)
-
 		props := events.Properties{
 			Host:       &app.config.hostname,
 			Source:     &app.config.source,
 			Sourcetype: &app.config.sourcetype,
 		}
-		go ep.Run(buf, props)
+
+		// produce ingest events
+		var ep events.Producer
+		switch filepath.Ext(app.config.filename) {
+		case jsonExt:
+			ep = json.NewEventsProducer(ctx, rdr, props)
+		case csvExt:
+			ep = csv.NewEventsProducer(ctx, rdr, props)
+		default:
+			ep = json.NewEventsProducer(ctx, rdr, props)
+		}
+		log.Printf("Selected event producer [%T]", ep)
+
+		// produce ingest events
+		go ep.Run()
 
 		// consume ingest events + produce batch evenys
 		bp := ingest.NewBatchProcessor(ctx, ep.Events())
