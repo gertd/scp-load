@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -29,6 +30,12 @@ const (
 	jsonExt = ".json"
 )
 
+type appContext struct {
+	config       *config
+	registration *scp.AppReg
+	client       *scp.Client
+}
+
 type config struct {
 	filename   string
 	tenant     string
@@ -37,20 +44,45 @@ type config struct {
 	sourcetype string
 }
 
+func (c *config) set(cmd *cobra.Command, args []string) error {
+
+	var err error
+
+	c.filename = args[0]
+	if _, err := os.Stat(c.filename); os.IsNotExist(err) {
+		return fmt.Errorf("file [%s] does not exist", c.filename)
+	}
+
+	if c.tenant, err = cmd.Flags().GetString(tenantArg); err != nil {
+		return err
+	}
+	if c.hostname, err = cmd.Flags().GetString(hostArg); err != nil {
+		return err
+	}
+	if c.source, err = cmd.Flags().GetString(sourceArg); err != nil {
+		return err
+	}
+	if c.sourcetype, err = cmd.Flags().GetString(sourcetypeArg); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Execute -- execute main command handler
 func Execute() error {
 
 	var (
-		client  *scp.Client
-		config  config
+		appContext = &appContext{
+			config:       &config{},
+			registration: &scp.AppReg{},
+		}
 		rootCmd = &cobra.Command{
-			Use:      "scp-load",
-			Short:    "scp data loader",
-			Version:  "0.0.1",
-			PreRunE:  preRun(config, client),
-			RunE:     run(config, client),
-			PostRunE: postRun,
-			Args:     cobra.ExactArgs(1),
+			Use:     "scp-load",
+			Short:   "scp data loader",
+			Version: "0.0.9",
+			PreRunE: preRunCmd(appContext),
+			RunE:    runCmd(appContext),
+			Args:    cobra.ExactArgs(1),
 		}
 	)
 
@@ -64,36 +96,21 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-func preRun(config config, client *scp.Client) func(cmd *cobra.Command, args []string) error {
+func preRunCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
 
 	return func(cmd *cobra.Command, args []string) error {
 
 		var err error
-		config.filename = args[0]
-		if _, err := os.Stat(config.filename); os.IsNotExist(err) {
-			return fmt.Errorf("file [%s] does not exist", config.filename)
-		}
-
-		if config.tenant, err = cmd.Flags().GetString(tenantArg); err != nil {
-			return err
-		}
-		if config.hostname, err = cmd.Flags().GetString(hostArg); err != nil {
-			return err
-		}
-		if config.source, err = cmd.Flags().GetString(sourceArg); err != nil {
-			return err
-		}
-		if config.sourcetype, err = cmd.Flags().GetString(sourcetypeArg); err != nil {
+		if err = app.config.set(cmd, args); err != nil {
 			return err
 		}
 
-		var appreg scp.AppReg
-		if err = appreg.Load("./appreg.json"); err != nil {
+		if err = app.registration.Load("./appreg.json"); err != nil {
 			return err
 		}
 
-		client = scp.NewClient(config.tenant, appreg.ClientID, appreg.ClientSecret)
-		if err := client.Authenticate(); err != nil {
+		app.client = scp.NewClient(app.config.tenant, app.registration.ClientID, app.registration.ClientSecret)
+		if err := app.client.Authenticate(); err != nil {
 			return err
 		}
 
@@ -101,11 +118,11 @@ func preRun(config config, client *scp.Client) func(cmd *cobra.Command, args []s
 	}
 }
 
-func run(config config, client *scp.Client) func(cmd *cobra.Command, args []string) error {
+func runCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
 
 	return func(cmd *cobra.Command, args []string) error {
 
-		r, err := os.Open(config.filename)
+		r, err := os.Open(app.config.filename)
 		if err != nil {
 			return err
 		}
@@ -114,49 +131,46 @@ func run(config config, client *scp.Client) func(cmd *cobra.Command, args []stri
 		buf := bufio.NewReader(r)
 
 		sigs := make(chan os.Signal, 1)
-		quit := make(chan bool)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		go func() {
 			sig := <-sigs
 			log.Println(sig)
-			quit <- true
+			cancel()
 		}()
 
 		// produce ingest events
 		var ep events.Producer
-		switch filepath.Ext(config.filename) {
+		switch filepath.Ext(app.config.filename) {
 		case jsonExt:
-			ep = json.NewEventsProducer(quit)
+			ep = json.NewEventsProducer(ctx)
 		case csvExt:
-			ep = csv.NewEventsProducer(quit)
+			ep = csv.NewEventsProducer(ctx)
 		default:
-			ep = json.NewEventsProducer(quit)
+			ep = json.NewEventsProducer(ctx)
 		}
 		log.Printf("Selected event producer [%T]", ep)
 
 		props := events.Properties{
-			Host:       &config.hostname,
-			Source:     &config.source,
-			Sourcetype: &config.sourcetype,
+			Host:       &app.config.hostname,
+			Source:     &app.config.source,
+			Sourcetype: &app.config.sourcetype,
 		}
 		go ep.Run(buf, props)
 
 		// consume ingest events + produce batch evenys
-		bp := ingest.NewBatchProcessor(ep.Events(), quit)
+		bp := ingest.NewBatchProcessor(ctx, ep.Events())
 		go bp.Run()
 
 		// consume batch events
-		bw := ingest.NewBatchWriter(client, bp.Batches(), quit)
+		bw := ingest.NewBatchWriter(ctx, app.client, bp.Batches())
 		bw.Run()
 
 		log.Printf("Summary: batches %d events %d size %d\n", bw.TotalBatches(), bp.TotalEvents(), bp.TotalByteSize())
 
 		return nil
 	}
-}
-
-func postRun(cmd *cobra.Command, args []string) error {
-
-	return nil
 }
