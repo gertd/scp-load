@@ -4,4 +4,4 @@ go 1.12
 
 require github.com/spf13/cobra v0.0.5
 
-require github.com/gertd/go-scp v0.0.9
+require github.com/gertd/go-scp v0.0.10
