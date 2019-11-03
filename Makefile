@@ -34,7 +34,7 @@ else
 endif
 
 LINTER     := $(BIN_DIR)/golangci-lint
-LINTVERSION:= v1.15.0
+LINTVERSION:= v1.20.0
 TESTRUNNER := $(GOPATH)/bin/gotestsum
 
 NO_COLOR   :=\033[0m
@@ -64,7 +64,7 @@ $(TESTRUNNER):
 .PHONY: test 
 test: $(TESTRUNNER) gen
 	@echo -e "$(ATTN_COLOR)==> test $(NO_COLOR)"
-	@gotestsum --format short-verbose ./...
+	@CGO_ENABLED=0 gotestsum --format short-verbose ./...
 
 $(LINTER):
 	@echo -e "$(ATTN_COLOR)==> get  $(NO_COLOR)"
@@ -73,7 +73,7 @@ $(LINTER):
 .PHONY: lint
 lint: $(LINTER)
 	@echo -e "$(ATTN_COLOR)==> lint $(NO_COLOR)"
-	@$(LINTER) run --enable-all
+	@CGO_ENABLED=0 $(LINTER) run --enable-all
 	@echo -e "$(NO_COLOR)\c"
 
 .PHONY: $(PLATFORMS)

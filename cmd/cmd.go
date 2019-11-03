@@ -53,7 +53,6 @@ type config struct {
 }
 
 func (c *config) set(cmd *cobra.Command, args []string) error {
-
 	var err error
 
 	c.filename = args[0]
@@ -64,21 +63,24 @@ func (c *config) set(cmd *cobra.Command, args []string) error {
 	if c.tenant, err = cmd.Flags().GetString(tenantArg); err != nil {
 		return err
 	}
+
 	if c.hostname, err = cmd.Flags().GetString(hostArg); err != nil {
 		return err
 	}
+
 	if c.source, err = cmd.Flags().GetString(sourceArg); err != nil {
 		return err
 	}
+
 	if c.sourcetype, err = cmd.Flags().GetString(sourcetypeArg); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 // Execute -- execute main command handler
 func Execute() error {
-
 	var (
 		appContext = &appContext{
 			config:       &config{},
@@ -105,10 +107,9 @@ func Execute() error {
 }
 
 func preRunCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
-
 	return func(cmd *cobra.Command, args []string) error {
-
 		var err error
+
 		if err = app.config.set(cmd, args); err != nil {
 			return err
 		}
@@ -127,9 +128,7 @@ func preRunCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
 }
 
 func runCmd(app *appContext) func(cmd *cobra.Command, args []string) error {
-
 	return func(cmd *cobra.Command, args []string) error {
-
 		r, err := os.Open(app.config.filename)
 		if err != nil {
 			return err
